@@ -64,7 +64,7 @@ async def text_to_speech(text):
 
 def play_audio(audio_data):
     # Open an output audio stream
-    output_stream = audio.open(format=pyaudio.paInt16, channels=1, rate=24000, output=True)
+    output_stream = audio.open(format=pyaudio.paInt16, channels=1, rate=24000, output=True, output_device_index=8)
     
     # Play the audio data
     output_stream.write(audio_data)
@@ -79,7 +79,7 @@ async def main():
             frames = []
             speech_detected = False
 
-            for _ in range(0, int(16000 / 320 * 5)):  # 5 seconds of audio with 20ms frames
+            for _ in range(0, int(16000 / 320 * 6)):  # 6 seconds of audio with 20ms frames
                 data = stream.read(320)  # Read 20ms frames
                 frames.append(data)
                 if is_speech(data):
