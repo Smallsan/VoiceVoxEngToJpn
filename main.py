@@ -7,6 +7,7 @@ import wave
 import webrtcvad
 from voicevox import Client
 import asyncio
+from deep_translator import GoogleTranslator
 
 # Check if ROCm is available and set the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,6 +29,8 @@ stream = audio.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, 
 vad = webrtcvad.Vad()
 vad.set_mode(2)  # 0: least aggressive, 3: most aggressive
 
+translator = GoogleTranslator(source='en', target='ja')
+
 print("Listening...")
 
 def save_audio_to_wav(audio_data, filename="temp.wav"):
@@ -46,14 +49,17 @@ def transcribe_audio(audio_data):
     result = pipe("temp.wav")
     return result['text']
 
+def translate_text(text):
+    # Use the deep-translator library to translate the text from English to Japanese
+    return translator.translate(text)
+
 def is_speech(frame):
     return vad.is_speech(frame, 16000)
 
 async def text_to_speech(text):
     async with Client() as client:
-
         audio_query = await client.create_audio_query(text, speaker=2)
-        audio_data = await audio_query.synthesis(speaker=1)
+        audio_data = await audio_query.synthesis(speaker=2)
         return audio_data
 
 async def main():
@@ -76,6 +82,9 @@ async def main():
                 
                 text = transcribe_audio(audio_data)
                 
+                # Translate the transcribed text to Japanese
+                translated_text = translate_text(text)
+                
                 # End the timer
                 end_time = time.time()
                 
@@ -83,10 +92,11 @@ async def main():
                 duration = end_time - start_time
                 
                 print(f"You said: {text}")
+                print(f"Translated to Japanese: {translated_text}")
                 print(f"Conversion took {duration:.2f} seconds")
                 
-                # Convert the transcribed text to speech and play it
-                tts_audio = await text_to_speech(text)
+                # Convert the translated text to speech and play it
+                tts_audio = await text_to_speech(translated_text)
                 with open("voice.wav", "wb") as f:
                     f.write(tts_audio)
 
