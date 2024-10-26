@@ -15,7 +15,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Load the Whisper model using Hugging Face Transformers
 pipe = pipeline(
     "automatic-speech-recognition",
-    model="openai/whisper-tiny",
+    model="openai/whisper-tiny", # Choices: tiny, small, medium, large, largev2
     chunk_length_s=30,
     device=device,
     generate_kwargs={"language": "<|en|>", "task": "transcribe"}
@@ -62,6 +62,17 @@ async def text_to_speech(text):
         audio_data = await audio_query.synthesis(speaker=2)
         return audio_data
 
+def play_audio(audio_data):
+    # Open an output audio stream
+    output_stream = audio.open(format=pyaudio.paInt16, channels=1, rate=24000, output=True)
+    
+    # Play the audio data
+    output_stream.write(audio_data)
+    
+    # Close the stream
+    output_stream.stop_stream()
+    output_stream.close()
+
 async def main():
     try:
         while True:
@@ -97,8 +108,7 @@ async def main():
                 
                 # Convert the translated text to speech and play it
                 tts_audio = await text_to_speech(translated_text)
-                with open("voice.wav", "wb") as f:
-                    f.write(tts_audio)
+                play_audio(tts_audio)
 
     except KeyboardInterrupt:
         print("Stopping...")
