@@ -5,6 +5,8 @@ import numpy as np
 import time
 import wave
 import webrtcvad
+from voicevox import Client
+import asyncio
 
 # Check if ROCm is available and set the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -20,6 +22,7 @@ pipe = pipeline(
 
 audio = pyaudio.PyAudio()
 
+# Input audio stream
 stream = audio.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=320)  # 20ms frames
 
 vad = webrtcvad.Vad()
@@ -46,38 +49,54 @@ def transcribe_audio(audio_data):
 def is_speech(frame):
     return vad.is_speech(frame, 16000)
 
-try:
-    while True:
-        frames = []
-        speech_detected = False
+async def text_to_speech(text):
+    async with Client() as client:
 
-        for _ in range(0, int(16000 / 320 * 5)):  # 5 seconds of audio with 20ms frames
-            data = stream.read(320)  # Read 20ms frames
-            frames.append(data)
-            if is_speech(data):
-                speech_detected = True
+        audio_query = await client.create_audio_query(text, speaker=2)
+        audio_data = await audio_query.synthesis(speaker=1)
+        return audio_data
 
-        if speech_detected:
-            audio_data = b''.join(frames)
-            
-            # Start the timer
-            start_time = time.time()
-            
-            text = transcribe_audio(audio_data)
-            
-            # End the timer
-            end_time = time.time()
-            
-            # Calculate the duration
-            duration = end_time - start_time
-            
-            print(f"You said: {text}")
-            print(f"Conversion took {duration:.2f} seconds")
+async def main():
+    try:
+        while True:
+            frames = []
+            speech_detected = False
 
-except KeyboardInterrupt:
-    print("Stopping...")
+            for _ in range(0, int(16000 / 320 * 5)):  # 5 seconds of audio with 20ms frames
+                data = stream.read(320)  # Read 20ms frames
+                frames.append(data)
+                if is_speech(data):
+                    speech_detected = True
 
-finally:
-    stream.stop_stream()
-    stream.close()
-    audio.terminate()
+            if speech_detected:
+                audio_data = b''.join(frames)
+                
+                # Start the timer
+                start_time = time.time()
+                
+                text = transcribe_audio(audio_data)
+                
+                # End the timer
+                end_time = time.time()
+                
+                # Calculate the duration
+                duration = end_time - start_time
+                
+                print(f"You said: {text}")
+                print(f"Conversion took {duration:.2f} seconds")
+                
+                # Convert the transcribed text to speech and play it
+                tts_audio = await text_to_speech(text)
+                with open("voice.wav", "wb") as f:
+                    f.write(tts_audio)
+
+    except KeyboardInterrupt:
+        print("Stopping...")
+
+    finally:
+        stream.stop_stream()
+        stream.close()
+        audio.terminate()
+
+if __name__ == "__main__":
+    asyncio.run(main())
