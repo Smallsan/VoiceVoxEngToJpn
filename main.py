@@ -9,6 +9,14 @@ from voicevox import Client
 import asyncio
 from deep_translator import GoogleTranslator
 
+# Set the output device index, Make sure it's a speaker device.
+# If you want to output in a microphone device, consider using a loopback device.
+output_device_index = 8
+# 0: least aggressive, 3: most aggressive.
+voice_detection_sensitivity = 2
+# Longer means it will take some time to end the recording after you stop speaking.
+audio_capture_length = 6
+
 # Check if ROCm is available and set the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -27,7 +35,7 @@ audio = pyaudio.PyAudio()
 stream = audio.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=320)  # 20ms frames
 
 vad = webrtcvad.Vad()
-vad.set_mode(2)  # 0: least aggressive, 3: most aggressive
+vad.set_mode(voice_detection_sensitivity)  # 0: least aggressive, 3: most aggressive
 
 translator = GoogleTranslator(source='en', target='ja')
 
@@ -64,7 +72,7 @@ async def text_to_speech(text):
 
 def play_audio(audio_data):
     # Open an output audio stream
-    output_stream = audio.open(format=pyaudio.paInt16, channels=1, rate=24000, output=True, output_device_index=8)
+    output_stream = audio.open(format=pyaudio.paInt16, channels=1, rate=24000, output=True, output_device_index= output_device_index)
     
     # Play the audio data
     output_stream.write(audio_data)
@@ -79,7 +87,7 @@ async def main():
             frames = []
             speech_detected = False
 
-            for _ in range(0, int(16000 / 320 * 6)):  # 6 seconds of audio with 20ms frames
+            for _ in range(0, int(16000 / 320 * audio_capture_length)):  # 6 seconds of audio with 20ms frames
                 data = stream.read(320)  # Read 20ms frames
                 frames.append(data)
                 if is_speech(data):
